@@ -1,0 +1,53 @@
+# ملف واحد يبني تطبيق أندرويد (غلاف أصلي لموقعك). لا تحذف الأسطر التي تبدأ بـ #DATA في آخر الملف # الاستخدام: Actions ثم Build Android APK ثم Run workflow ثم أدخل الحقول الثلاثة
+name: Build Android APK
+on:
+  workflow_dispatch:
+    inputs:
+      app_name:
+        description: 'اسم التطبيق (يظهر تحت الأيقونة)'
+        required: true
+        default: 'My Chat App'
+      app_url:
+        description: 'رابط موقعك على Netlify (يبدأ بـ https)'
+        required: true
+        default: 'https://harmonious-cheesecake-68491d.netlify.app'
+      app_id:
+        description: 'معرّف الحزمة (أحرف إنجليزية صغيرة ونقطة على الأقل)'
+        required: true
+        default: 'com.chat.app'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      APP_NAME: ${{ inputs.app_name }}
+      APP_URL: ${{ inputs.app_url }}
+      APP_ID: ${{ inputs.app_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unpack project from this file
+        run: |
+          WF="${GITHUB_WORKFLOW_REF#${GITHUB_REPOSITORY}/}"
+          WF="${WF%%@*}"
+          grep -q '^#DATA-END' "$WF" || { echo "::error::الملف ناقص: لم يصل النسخ حتى آخره. أعد لصق الملف كاملاً ثم احفظ"; exit 1; }
+          sed -n 's/^#DATA //p' "$WF" | tr -d '\n' | base64 -d > project.tar.gz || { echo "::error::محتوى الملف تالف أو ناقص. أعد النسخ واللصق كاملاً"; exit 1; }
+          echo "8b811b37b7cb05916f86a91ae9f28d654b8959974503f7ce7db0e9a679be9111 project.tar.gz" | sha256sum -c - || { echo "::error::محتوى الملف تالف أو ناقص. أعد النسخ واللصق كاملاً"; exit 1; }
+          tar xzf project.tar.gz
+          rm project.tar.gz
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Accept Android licenses
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+      - name: Build APK
+        run: gradle assembleDebug --no-daemon --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: app/build/outputs/apk/debug/*.apk
+
+# ===== لا تعدّل ما بعد هذا السطر ===== #DATA H4sIAImU62oC/+19CXwTxf54uSwUhKIgD3iWNSBNIU1PSqFN2zRJabRNapIWkCNsk22zNBe7m5aW #DATA Vk6xgEABFZ8IVEC5D21BKacoyClytwg+nnIfHlzK2f/M7ibdJJu2iPp8vz/7kSaZ+c53Zr739zuT #DATA SGIUhVtzSXEugRrNmN+f8YSDJyY6mn4Fj+dreJ/wPq73dHtEeN+YPn5IuN9f8DhICiXA9H7/fz52 #DATA syMXt6ajVjQXs2BWChkTgICHwOw2EqdsBI6RbBN8cm22XDMmDHE1WNB8zCoD4wjUzGlmhCmDxp1h #DATA IyhXZ0lASYARs2NWI2Y1FGow0mZ2ULit/gWk24yYmMQoocazMUWqTNOrVfoMjfolhUyn1ygy1NqQ #DATA x90BXCRhs1EZhG0kZqDEVtSCIRJEIDOhlNRuJwUBuNVgdhgxJLg/arcHB/wP8z/bgZuNf6byN0L/ #DATA IyIiPPU/MuKJ/v+F+u/UENyIBBtsFjFqNRI23CgG0m3GDSjU0GAkHyNI8AYJjhX3EUcGI7CzEMlB #DATA zSQGFMbvyfO/+DCaL7YTNjtGUMBW/hf0Pzwm3EP/I6Ke6P9f89iIXNb6i0fmW1Ail5SEDrKMjsxF #DATA QuU5OGgFftpmBBGiJFOXEhr7RM3/jz3AiIf92TFAA/ofEREZ7an/4eGRT/T/7+X/gY8PYNtZaBgX #DATA k3bUgDGDDCA8psNh2Aca7MB8aI15SFR0ANN1kxHJQh5mS2aw5eC4nJOdMojQi2kKSwiziXIzCrPnC #DATA YGlGhl4pD+bE67gVIo2MdrUA/gFodiZnIxusyECWgER4tqpgQB8cIQ4PdvUQGJmFmh2gmaQIYO6C #DATA RUgwWJge7hG851mVSpqu4KyLViJmbyk4ZgaE1LoQQfBMTRp4KgxqgEDqxAE71KFAjDIB0C3v66tI #DATA nTq1Tq+TqfVw9a4S5X8U2cM0tIq1v1ZqP9d5v0M3b56v+Z83s1zW0e11+fP7/99k6QjXp7tY55+ #DATA b2l616+U9v1sP4W9wR4uN0t8/K7d5e4bcfOQeD7L4J47+N7qG9Xk8z4d+L/fX2610r62W21 #DATA 9c7fC+t7pWJ43x+H1vN6G7+t66P7x/O+Z5e0Gv5r9eJ8uW5n+4e/b8L2/f3e7P68s75v #DATA z1f6t+X5h9f/3+Gv13qP/eP71z8d/sD5t9P88f3X3o2/N+Z/wzfe/b4G+e+H8+/Zf #DATA 3f/r593/h8/f9//n+vP+f8D+zP+z8+D/T9X3/79f42/D83z/f3z/f3z/f3z/f3z/ #DATA f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/ #DATA f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/ #DATA f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/ #DATA f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/ #DATA f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/f3z/ #DATA-END
